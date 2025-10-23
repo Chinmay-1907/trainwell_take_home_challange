@@ -66,7 +66,7 @@ const StepInput = ({
         disabled={disableRemove}
         aria-label={`Remove step ${index + 1}`}
       >
-        ✕
+        -
       </button>
     </div>
   );

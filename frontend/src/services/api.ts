@@ -1,5 +1,3 @@
-import axios from "axios";
-
 export interface FunnelStepRequest {
   hostname?: string;
   path?: string;
@@ -21,9 +19,18 @@ export interface FunnelRequestBody {
 export const runFunnel = async (
   payload: FunnelRequestBody
 ): Promise<FunnelStepResponse[]> => {
-  const { data } = await axios.post<{ steps: FunnelStepResponse[] }>(
-    "/api/funnel",
-    payload
-  );
-  return data.steps;
+  const response = await fetch("/api/funnel", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+
+  const data = (await response.json()) as { steps?: FunnelStepResponse[] };
+  return data.steps ?? [];
 };
