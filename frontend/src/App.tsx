@@ -89,11 +89,12 @@ const App = () => {
     setError(null);
 
     try {
-      const response = await runFunnel({
+      const payload = {
         startDate: formatDateParam(startDate),
         endDate: formatDateParam(endDate),
         steps: preparedSteps
-      });
+      };
+      const response = await runFunnel(payload);
       setResults(response);
     } catch (err) {
       console.error(err);
@@ -139,6 +140,8 @@ const App = () => {
             />
           </label>
         </div>
+
+        {/* Options removed per request */}
 
         <div className="steps-header">
           <h2>Funnel Steps</h2>
@@ -186,6 +189,7 @@ const App = () => {
                     <th>Step</th>
                     <th>Users</th>
                     <th>Conversion %</th>
+                    <th>Time to step (median / p95)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -194,6 +198,13 @@ const App = () => {
                       <td>{`${index + 1}. ${step.label}`}</td>
                       <td>{step.users}</td>
                       <td>{step.conversion.toFixed(2)}</td>
+                      <td>
+                        {index === 0 || !step.timeToStep
+                          ? "—"
+                          : `${formatDuration(step.timeToStep.medianMs)} / ${formatDuration(
+                              step.timeToStep.p95Ms
+                            )}`}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -207,3 +218,15 @@ const App = () => {
 };
 
 export default App;
+
+function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "0s";
+  const sec = Math.round(ms / 1000);
+  if (sec < 60) return `${sec}s`;
+  const min = Math.floor(sec / 60);
+  const remS = sec % 60;
+  if (min < 60) return remS ? `${min}m ${remS}s` : `${min}m`;
+  const hr = Math.floor(min / 60);
+  const remM = min % 60;
+  return remM ? `${hr}h ${remM}m` : `${hr}h`;
+}

@@ -8,6 +8,11 @@ export interface FunnelStepResponse {
   label: string;
   users: number;
   conversion: number;
+  timeToStep?: {
+    count: number;
+    medianMs: number;
+    p95Ms: number;
+  } | null;
 }
 
 export interface FunnelRequestBody {

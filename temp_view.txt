@@ -9,8 +9,6 @@ interface EventDocument extends Document {
     path?: string;
     hostname?: string;
   };
-  // Known timestamp fields observed in the dataset (used for time-to-step)
-  date?: Date | string;
   occurred_at?: Date | string;
   timestamp?: Date | string;
   received_at?: Date | string;
@@ -81,11 +79,7 @@ const normalize = (value?: string | null): string | null => {
 
 const getEventTimestamp = (event: EventDocument): Date => {
   const candidate =
-    event.date ??
-    event.occurred_at ??
-    event.timestamp ??
-    event.received_at ??
-    event.created_at;
+    event.occurred_at ?? event.timestamp ?? event.received_at ?? event.created_at;
   if (candidate instanceof Date) {
     return candidate;
   }
@@ -146,7 +140,6 @@ router.post("/", async (req, res) => {
         projection: {
           user_id: 1,
           content: 1,
-          date: 1,
           occurred_at: 1,
           timestamp: 1,
           received_at: 1,
@@ -163,11 +156,12 @@ router.post("/", async (req, res) => {
     // Organize events by user to evaluate the funnel sequentially.
     const eventsByUser = new Map<string, EventDocument[]>();
     for (const event of filteredEvents) {
-      const userId = event.user_id;
-      if (!userId) continue;
-      const list = eventsByUser.get(userId) ?? [];
-      list.push(event);
-      eventsByUser.set(userId, list);
+      if (!event.user_id) {
+        continue;
+      }
+      const userEvents = eventsByUser.get(event.user_id) ?? [];
+      userEvents.push(event);
+      eventsByUser.set(event.user_id, userEvents);
     }
 
     // Ensure each user's events are in chronological order.
@@ -191,11 +185,7 @@ router.post("/", async (req, res) => {
     };
 
     const progressByUser = new Map<string, number>();
-    const lastMatchTimeByUser = new Map<string, number>();
     let eligibleUsers = new Set(eventsByUser.keys());
-
-    // Collect per-step transition durations in milliseconds (from previous step to current step)
-    const transitionDurations: number[][] = steps.map(() => []);
 
     const responseSteps = steps.map((step, index) => {
       const nextEligible = new Set<string>();
@@ -203,12 +193,10 @@ router.post("/", async (req, res) => {
       for (const userId of eligibleUsers) {
         const userEvents = eventsByUser.get(userId) ?? [];
         const startIndex = progressByUser.get(userId) ?? -1;
-        const prevMatchTime = lastMatchTimeByUser.get(userId) ?? -Infinity;
 
         let matchedIndex = -1;
         for (let i = startIndex + 1; i < userEvents.length; i += 1) {
-          const ev = userEvents[i];
-          if (matchesStep(ev, step)) {
+          if (matchesStep(userEvents[i], step)) {
             matchedIndex = i;
             break;
           }
@@ -216,17 +204,6 @@ router.post("/", async (req, res) => {
 
         if (matchedIndex !== -1) {
           progressByUser.set(userId, matchedIndex);
-          lastMatchTimeByUser.set(
-            userId,
-            getEventTimestamp(userEvents[matchedIndex]).getTime()
-          );
-          if (index > 0) {
-            const currentTs = getEventTimestamp(userEvents[matchedIndex]).getTime();
-            const delta = currentTs - prevMatchTime;
-            if (Number.isFinite(delta) && delta >= 0) {
-              transitionDurations[index].push(delta);
-            }
-          }
           nextEligible.add(userId);
         }
       }
@@ -245,29 +222,10 @@ router.post("/", async (req, res) => {
 
       eligibleUsers = nextEligible;
 
-      // Compute summary stats for time to this step (from previous step)
-      let timeToStep: { count: number; medianMs: number; p95Ms: number } | null = null;
-      if (index > 0) {
-        const arr = transitionDurations[index];
-        if (arr.length > 0) {
-          const sorted = [...arr].sort((a, b) => a - b);
-          const n = sorted.length;
-          const median =
-            n % 2 === 1
-              ? sorted[(n - 1) / 2]
-              : (sorted[n / 2 - 1] + sorted[n / 2]) / 2;
-          const p95 = sorted[Math.min(n - 1, Math.floor(0.95 * (n - 1)))];
-          timeToStep = { count: n, medianMs: Math.round(median), p95Ms: Math.round(p95) };
-        } else {
-          timeToStep = { count: 0, medianMs: 0, p95Ms: 0 };
-        }
-      }
-
       return {
         label: deriveLabel(step, index),
         users: usersAtStep,
-        conversion,
-        timeToStep
+        conversion
       };
     });
 
