@@ -11,8 +11,9 @@ Simple app to compute and visualize conversion funnels from MongoDB page‑view 
 ## Configure (optional)
 Create `backend/.env` to override defaults:
 ```
-MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>/
-MONGODB_DB_NAME=trainwell_takehome
+MONGODB_URI= <YOUR_MONGODB_URI>
+MONGODB_DB_NAME= <YOUR_DB_NAME>
+PORT=4000
 ```
 ## Use
 - Pick a date range, add steps (hostname or path), run.
