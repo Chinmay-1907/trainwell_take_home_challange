@@ -1,19 +1,26 @@
 import { MongoClient, Db, Collection, Document } from "mongodb";
 
-const DEFAULT_URI =
-  "mongodb+srv://trainwell-takehome:ZRq8gOrDNyPEsFup@cluster0.jppnq.mongodb.net/";
-const DEFAULT_DB = "trainwell_takehome";
-
 let client: MongoClient | null = null;
 let db: Db | null = null;
+
+const getEnv = (key: string): string | undefined => {
+  const value = process.env[key];
+  return value && value.trim().length > 0 ? value : undefined;
+};
 
 export const connectToDatabase = async (): Promise<Db> => {
   if (db) {
     return db;
   }
 
-  const uri = process.env.MONGODB_URI ?? DEFAULT_URI;
-  const dbName = process.env.MONGODB_DB_NAME ?? DEFAULT_DB;
+  const uri = getEnv("MONGODB_URI");
+  const dbName = getEnv("MONGODB_DB_NAME");
+
+  if (!uri || !dbName) {
+    throw new Error(
+      "Missing MongoDB configuration. Set MONGODB_URI and MONGODB_DB_NAME in backend/.env"
+    );
+  }
 
   client = new MongoClient(uri);
   await client.connect();
