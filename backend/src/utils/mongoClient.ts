@@ -35,4 +35,4 @@ export const getCollection = <TSchema extends Document = Document>(
     throw new Error("Database connection has not been established. Call connectToDatabase() first.");
   }
   return db.collection<TSchema>(collectionName);
-};
+}
